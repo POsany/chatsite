@@ -13,7 +13,6 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 $board_id = (int)$_GET['id'];
 
 // 基盤：未読DMカウント（ログイン時のみ実行）
-$unread_count = 0;
 if ($user_id) {
     $stmt_unread = $pdo->prepare("SELECT COUNT(*) FROM direct_messages WHERE receiver_id = ? AND is_read = 0");
     $stmt_unread->execute([$user_id]);
@@ -104,6 +103,9 @@ $posts = $stmt->fetchAll();
         .latest-reply { background: #f8f9fa; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 15px; border-left: 4px solid #007bff; color: #555; position: relative; z-index: 2; }
         .cat-badge { font-size: 11px; background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
         .cat-badge-日記 { background: #9b59b6; }
+        /* 削除ボタン用のスタイル */
+        .btn-delete { color: #dc3545; border-color: #f8d7da; }
+        .btn-delete:hover { background: #f8d7da; }
     </style>
 </head>
 <body>
@@ -191,6 +193,12 @@ $posts = $stmt->fetchAll();
                     ❤️ <span class="count"><?= $p['like_count'] ?></span>
                 </button>
                 <span style="font-size:13px; color:#666;">💬 <?= $p['comment_count'] ?> 件の返信</span>
+                
+                <?php if ($user_id && $p['user_id'] == $user_id): ?>
+                    <a href="delete_post.php?id=<?= $p['id'] ?>" class="btn-action btn-delete" onclick="event.stopPropagation(); return confirm('この投稿を削除しますか？');" style="text-decoration: none;">
+                        <span class="material-symbols-outlined" style="font-size:18px; vertical-align: middle;">delete</span> 削除
+                    </a>
+                <?php endif; ?>
             </div>
 
             <?php if($p['latest_comment']): ?>
@@ -204,7 +212,6 @@ $posts = $stmt->fetchAll();
 
 <script>
 function toggleAction(type, id, btn) {
-    // ゲストの場合はログインへ誘導
     if(!<?= $user_id ? 'true' : 'false' ?>) {
         if(confirm('この操作にはログインが必要です。ログイン画面へ移動しますか？')) {
             window.location.href = 'login.php';

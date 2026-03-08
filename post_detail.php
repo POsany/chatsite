@@ -13,7 +13,6 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 $post_id = (int)$_GET['id'];
 
 // 基盤：未読DMカウント（ログイン時のみ）
-$unread_count = 0;
 if ($user_id) {
     $stmt_unread = $pdo->prepare("SELECT COUNT(*) FROM direct_messages WHERE receiver_id = ? AND is_read = 0");
     $stmt_unread->execute([$user_id]);
@@ -59,21 +58,18 @@ if ($user_id && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'
 <head>
     <meta charset="UTF-8">
     <title>投稿詳細 - <?= mb_strimwidth(htmlspecialchars($post['message']), 0, 20, "...") ?></title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #eef1f5; margin: 0; padding: 0; color: #333; }
-        .global-header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
-        .global-header h2 { margin: 0; font-size: 22px; color: #222; }
-        .nav-right { display: flex; align-items: center; gap: 20px; }
-        .icon-btn { text-decoration: none; color: #555; position: relative; display: flex; align-items: center; font-weight: bold; }
-        .unread-badge { position: absolute; top: -5px; right: -8px; background: #dc3545; color: white; font-size: 10px; padding: 2px 5px; border-radius: 10px; }
         .container { max-width: 700px; margin: 20px auto; padding: 0 15px; }
         .main-post, .comment-card, .reply-form-card { background: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .main-post { border-left: 6px solid #007bff; }
+        .main-post { border-left: 6px solid #007bff; position: relative; }
         .avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; }
-        .btn-action { cursor: pointer; border: 1px solid #ddd; padding: 6px 15px; border-radius: 20px; font-size: 13px; background: #f8f9fa; transition: 0.2s; }
+        .btn-action { cursor: pointer; border: 1px solid #ddd; padding: 6px 15px; border-radius: 20px; font-size: 13px; background: #f8f9fa; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
         .btn-action.active { background: #ff4757; color: white; border-color: #ff4757; }
         .btn-fav.active { background: #3498db; color: white; border-color: #3498db; }
+        .btn-delete { color: #dc3545; border-color: #f8d7da; text-decoration: none; }
+        .btn-delete:hover { background: #f8d7da; }
     </style>
 </head>
 <body>
@@ -84,13 +80,21 @@ if ($user_id && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'
     <a href="board.php?id=<?= $post['board_id'] ?>" style="text-decoration:none; font-size:14px; color:#007bff; display:inline-block; margin-bottom:15px; font-weight:bold;">← <?= htmlspecialchars($post['b_title']) ?> に戻る</a>
     
     <div class="main-post">
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:15px;">
-            <img src="<?= htmlspecialchars($post['profile_image'] ?: 'https://via.placeholder.com/45') ?>" class="avatar">
-            <div>
-                <strong style="display:block;"><?= htmlspecialchars($post['nickname']) ?></strong>
-                <small style="color:#999;"><?= $post['created_at'] ?></small>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <img src="<?= htmlspecialchars($post['profile_image'] ?: 'https://via.placeholder.com/45') ?>" class="avatar">
+                <div>
+                    <strong style="display:block;"><?= htmlspecialchars($post['nickname']) ?></strong>
+                    <small style="color:#999;"><?= $post['created_at'] ?></small>
+                </div>
             </div>
+            <?php if ($user_id && $post['user_id'] == $user_id): ?>
+                <a href="delete_post.php?id=<?= $post['id'] ?>&type=post" class="btn-action btn-delete" onclick="return confirm('投稿を削除しますか？掲示板から完全に消去されます。');">
+                    <span class="material-symbols-outlined" style="font-size:18px;">delete</span>削除
+                </a>
+            <?php endif; ?>
         </div>
+
         <p style="font-size:18px; line-height:1.7; word-wrap: break-word;"><?= nl2br(htmlspecialchars($post['message'])) ?></p>
         
         <?php if($post['image_path']): ?>
@@ -110,10 +114,17 @@ if ($user_id && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'
     <h3 style="margin-left:10px; color:#555;">返信一覧 (<?= count($comments) ?>)</h3>
     <?php foreach($comments as $c): ?>
         <div class="comment-card">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                <img src="<?= htmlspecialchars($c['profile_image'] ?: 'https://via.placeholder.com/35') ?>" style="width:35px; height:35px; border-radius:50%;">
-                <strong><?= htmlspecialchars($c['nickname']) ?></strong>
-                <small style="color:#999;"><?= $c['created_at'] ?></small>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <img src="<?= htmlspecialchars($c['profile_image'] ?: 'https://via.placeholder.com/35') ?>" style="width:35px; height:35px; border-radius:50%;">
+                    <strong><?= htmlspecialchars($c['nickname']) ?></strong>
+                    <small style="color:#999;"><?= $c['created_at'] ?></small>
+                </div>
+                <?php if ($user_id && $c['user_id'] == $user_id): ?>
+                    <a href="delete_post.php?id=<?= $c['id'] ?>&type=comment" style="color:#ff4757; text-decoration:none; font-size:12px;" onclick="return confirm('返信を削除しますか？');">
+                        削除
+                    </a>
+                <?php endif; ?>
             </div>
             <p><?= nl2br(htmlspecialchars($c['message'])) ?></p>
         </div>
