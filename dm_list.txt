@@ -1,0 +1,75 @@
+<?php
+session_start();
+require_once 'db_connect.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit;
+}
+
+$my_id = $_SESSION['user_id'];
+
+// 最新のメッセージを送信者ごとに取得
+$sql = "SELECT m.*, u.nickname, u.profile_image 
+        FROM direct_messages m
+        JOIN users u ON (m.sender_id = u.id OR m.receiver_id = u.id) AND u.id != :my_id
+        WHERE m.id IN (
+            SELECT MAX(id) FROM direct_messages 
+            WHERE sender_id = :my_id OR receiver_id = :my_id 
+            GROUP BY IF(sender_id = :my_id, receiver_id, sender_id)
+        )
+        ORDER BY m.created_at DESC";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute([':my_id' => $my_id]);
+$chats = $stmt->fetchAll();
+?>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>メッセージ一覧</title>
+    <style>
+        body { font-family: sans-serif; background: #eef1f5; margin: 0; padding: 0; }
+        .global-header { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .container { max-width: 600px; margin: 20px auto; padding: 0 15px; }
+        .chat-item { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; text-decoration: none; color: inherit; transition: 0.2s; }
+        .chat-item:hover { background: #f8f9fa; transform: translateY(-2px); }
+        .avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
+        .chat-info { flex-grow: 1; }
+        .last-msg { font-size: 13px; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+<header class="global-header">
+    <a href="index.php" style="text-decoration:none; font-weight:bold; color:#333;">🎮 ゲーム掲示板</a>
+    <a href="mypage.php" style="text-decoration:none; color:#007bff; font-weight:bold;">👤 マイページへ</a>
+</header>
+
+<div class="container">
+    <h2>📩 メッセージ一覧</h2>
+    <?php if(empty($chats)): ?>
+        <p style="text-align:center; color:#888; margin-top:50px;">まだメッセージのやり取りはありません。</p>
+    <?php endif; ?>
+
+    <?php foreach($chats as $c): ?>
+        <?php 
+            $partner_id = ($c['sender_id'] == $my_id) ? $c['receiver_id'] : $c['sender_id'];
+        ?>
+        <a href="dm.php?id=<?= $partner_id ?>" class="chat-item">
+            <?php if($c['profile_image']): ?>
+                <img src="<?= htmlspecialchars($c['profile_image']) ?>" class="avatar">
+            <?php else: ?>
+                <div style="width:50px; height:50px; border-radius:50%; background:#ccc; display:flex; align-items:center; justify-content:center; color:white;">👤</div>
+            <?php endif; ?>
+            <div class="chat-info">
+                <strong><?= htmlspecialchars($c['nickname']) ?></strong>
+                <div class="last-msg"><?= mb_strimwidth(htmlspecialchars($c['message']), 0, 50, "...") ?></div>
+            </div>
+            <div style="font-size:11px; color:#999;"><?= date('m/d', strtotime($c['created_at'])) ?></div>
+        </a>
+    <?php endforeach; ?>
+</div>
+</body>
+</html>
